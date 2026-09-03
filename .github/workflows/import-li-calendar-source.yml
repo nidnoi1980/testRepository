@@ -1,0 +1,71 @@
+name: Import customized liCalendar source
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/import-li-calendar-source.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  import-source:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Prepare customized source tree
+        shell: pwsh
+        run: |
+          git clone --branch v1.0.0 --depth 1 https://github.com/CrankZ/li-calendar.git upstream-source
+          Copy-Item "$env:GITHUB_WORKSPACE\weekrows.patch" "$env:GITHUB_WORKSPACE\upstream-source\weekrows.patch"
+          Set-Location "$env:GITHUB_WORKSPACE\upstream-source"
+          git apply --check weekrows.patch
+          git apply weekrows.patch
+
+          $weekFile = "src/utils/calendar/calendarWeekNumber.ts"
+          (Get-Content $weekFile) | Where-Object { $_ -notmatch 'const weekYear = rowEnd\.year\(\);' } | Set-Content -Encoding utf8 $weekFile
+
+          Copy-Item "$env:GITHUB_WORKSPACE\useTauriCalendarResize.final.ts" "$env:GITHUB_WORKSPACE\upstream-source\src\hooks\calender\useTauriCalendarResize.ts" -Force
+          Remove-Item "$env:GITHUB_WORKSPACE\upstream-source\weekrows.patch" -Force
+          Remove-Item "$env:GITHUB_WORKSPACE\upstream-source\.git" -Recurse -Force
+
+          @'
+          # Custom ACTIA/Personal Build Notes
+
+          This source tree is based on `CrankZ/li-calendar` v1.0.0.
+
+          Custom changes included here:
+          - Week number column on the left of each calendar row.
+          - Setting to show/hide week numbers.
+          - Setting for the week containing January 1 to start at W0 or W1.
+          - Runtime Windows/WebView2 scaling compensation so the taskbar popup is not clipped on high-DPI displays.
+
+          The original upstream license and source files are retained in this directory.
+          '@ | Set-Content -Encoding utf8 "$env:GITHUB_WORKSPACE\upstream-source\CUSTOM_CHANGES.md"
+
+      - name: Replace tracked customized source folder
+        shell: pwsh
+        run: |
+          $target = "$env:GITHUB_WORKSPACE\li-calendar-custom"
+          if (Test-Path $target) { Remove-Item $target -Recurse -Force }
+          New-Item -ItemType Directory -Force -Path $target | Out-Null
+          robocopy "$env:GITHUB_WORKSPACE\upstream-source" $target /E /NFL /NDL /NJH /NJS /NP
+          if ($LASTEXITCODE -gt 7) { throw "robocopy failed with exit code $LASTEXITCODE" }
+          $global:LASTEXITCODE = 0
+
+      - name: Commit full customized source
+        shell: pwsh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add li-calendar-custom
+          if (git diff --cached --quiet) {
+            Write-Host "No source changes to commit."
+            exit 0
+          }
+          git commit -m "Add complete customized li-calendar source"
+          git push origin master
