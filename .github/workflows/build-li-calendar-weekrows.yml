@@ -5,7 +5,7 @@ on:
     branches: [master]
     paths:
       - 'weekrows.patch'
-      - 'useTauriCalendarResize.debug.ts'
+      - 'useTauriCalendarResize.final.ts'
       - '.github/workflows/build-li-calendar-weekrows.yml'
   workflow_dispatch:
 
@@ -32,7 +32,7 @@ jobs:
           $weekFile = "src/utils/calendar/calendarWeekNumber.ts"
           (Get-Content $weekFile) | Where-Object { $_ -notmatch 'const weekYear = rowEnd\.year\(\);' } | Set-Content -Encoding utf8 $weekFile
 
-          Copy-Item "$env:GITHUB_WORKSPACE\useTauriCalendarResize.debug.ts" "$env:GITHUB_WORKSPACE\app\src\hooks\calender\useTauriCalendarResize.ts" -Force
+          Copy-Item "$env:GITHUB_WORKSPACE\useTauriCalendarResize.final.ts" "$env:GITHUB_WORKSPACE\app\src\hooks\calender\useTauriCalendarResize.ts" -Force
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -71,11 +71,11 @@ jobs:
           New-Item -ItemType Directory -Force -Path "$env:GITHUB_WORKSPACE\release" | Out-Null
           $installer = Get-ChildItem "$env:GITHUB_WORKSPACE\app\src-tauri\target\release\bundle\nsis\*.exe" | Select-Object -First 1
           if (-not $installer) { throw 'NSIS installer was not generated.' }
-          Copy-Item $installer.FullName "$env:GITHUB_WORKSPACE\release\liCalendar_1.0.0_weekrows_runtime_debug_x64-setup.exe"
+          Copy-Item $installer.FullName "$env:GITHUB_WORKSPACE\release\liCalendar_1.0.0_weekrows_final_x64-setup.exe"
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: liCalendar-weekrows-runtime-debug-windows
-          path: release/liCalendar_1.0.0_weekrows_runtime_debug_x64-setup.exe
+          name: liCalendar-weekrows-final-windows
+          path: release/liCalendar_1.0.0_weekrows_final_x64-setup.exe
           if-no-files-found: error
