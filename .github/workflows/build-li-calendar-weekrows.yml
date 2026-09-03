@@ -1,11 +1,11 @@
 name: Build liCalendar Week Rows
 
-# Build trigger for custom Windows installer
 on:
   push:
     branches: [master]
     paths:
       - 'weekrows.patch'
+      - 'useTauriCalendarResize.debug.ts'
       - '.github/workflows/build-li-calendar-weekrows.yml'
   workflow_dispatch:
 
@@ -32,30 +32,7 @@ jobs:
           $weekFile = "src/utils/calendar/calendarWeekNumber.ts"
           (Get-Content $weekFile) | Where-Object { $_ -notmatch 'const weekYear = rowEnd\.year\(\);' } | Set-Content -Encoding utf8 $weekFile
 
-          # Fix the original popup auto-resize logic for high-DPI Windows displays.
-          # Use Tauri LogicalSize instead of manually multiplying by scaleFactor,
-          # and size from the larger of the element box and its scroll extent.
-          $resizeFile = "src/hooks/calender/useTauriCalendarResize.ts"
-          $lines = [System.Collections.Generic.List[string]](Get-Content $resizeFile)
-          for ($i = 0; $i -lt $lines.Count; $i++) {
-            if ($lines[$i] -eq "import { PhysicalSize } from '@tauri-apps/api/dpi';") {
-              $lines[$i] = "import { LogicalSize } from '@tauri-apps/api/dpi';"
-              break
-            }
-          }
-          $start = $lines.IndexOf('      const factor = await window.scaleFactor();')
-          $end = $lines.IndexOf('      await window.setSize(new PhysicalSize(physicalWidth, physicalHeight));')
-          if ($start -lt 0 -or $end -lt $start) { throw 'Could not locate original resize block.' }
-          for ($i = $end; $i -ge $start; $i--) { $lines.RemoveAt($i) }
-          $replacement = [string[]]@(
-            '      const rect = el.getBoundingClientRect();',
-            '      const width = Math.ceil(Math.max(rect.width, el.offsetWidth, el.scrollWidth)) + 2;',
-            '      const height = Math.ceil(Math.max(rect.height, el.offsetHeight, el.scrollHeight)) + 2;',
-            '',
-            '      await window.setSize(new LogicalSize(width, height));'
-          )
-          $lines.InsertRange($start, $replacement)
-          Set-Content -Encoding utf8 $resizeFile $lines
+          Copy-Item "$env:GITHUB_WORKSPACE\useTauriCalendarResize.debug.ts" "$env:GITHUB_WORKSPACE\app\src\hooks\calender\useTauriCalendarResize.ts" -Force
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -94,22 +71,11 @@ jobs:
           New-Item -ItemType Directory -Force -Path "$env:GITHUB_WORKSPACE\release" | Out-Null
           $installer = Get-ChildItem "$env:GITHUB_WORKSPACE\app\src-tauri\target\release\bundle\nsis\*.exe" | Select-Object -First 1
           if (-not $installer) { throw 'NSIS installer was not generated.' }
-          Copy-Item $installer.FullName "$env:GITHUB_WORKSPACE\release\liCalendar_1.0.0_weekrows_dpi_x64-setup.exe"
+          Copy-Item $installer.FullName "$env:GITHUB_WORKSPACE\release\liCalendar_1.0.0_weekrows_runtime_debug_x64-setup.exe"
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: liCalendar-weekrows-dpi-windows
-          path: release/liCalendar_1.0.0_weekrows_dpi_x64-setup.exe
+          name: liCalendar-weekrows-runtime-debug-windows
+          path: release/liCalendar_1.0.0_weekrows_runtime_debug_x64-setup.exe
           if-no-files-found: error
-
-      - name: Publish build release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: li-calendar-weekrows-v1.0.0
-          name: liCalendar 1.0.0 - Week Rows
-          prerelease: true
-          body: |
-            Custom build based on CrankZ/li-calendar v1.0.0.
-            Adds a week-number column on the left of each calendar row, W0/W1 configuration, and DPI-safe popup auto sizing for Windows.
-          files: release/liCalendar_1.0.0_weekrows_dpi_x64-setup.exe
