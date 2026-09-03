@@ -153,7 +153,7 @@ index 4835070..619a3da 100644
        })}
      </div>
 diff --git a/src/components/settings/forms/CalendarForm.tsx b/src/components/settings/forms/CalendarForm.tsx
-index 37ef17f..5ec6835 100644
+index 3274e55..5e69bc1 100644
 --- a/src/components/settings/forms/CalendarForm.tsx
 +++ b/src/components/settings/forms/CalendarForm.tsx
 @@ -1,4 +1,4 @@
@@ -183,10 +183,11 @@ index 37ef17f..5ec6835 100644
          <Switch />
        </Form.Item>
 diff --git a/src/hooks/calender/useCalendarViewModel.ts b/src/hooks/calender/useCalendarViewModel.ts
-index 9a3b84a..37b5477 100644
+index 53dd7e8..ea20567 100644
 --- a/src/hooks/calender/useCalendarViewModel.ts
 +++ b/src/hooks/calender/useCalendarViewModel.ts
-@@ -102,6 +102,8 @@ export const useCalendarViewModel = (): CalendarViewModel => {
+@@ -102,6 +102,8 @@ export function useCalendarViewModel({
+   /** 全局配置数据，用于决定页脚与窗口效果。 */
    const { data: config, sync: syncConfig } = useConfigSync();
    const {
 +    calendarWeekNumberVisible,
@@ -194,7 +195,7 @@ index 9a3b84a..37b5477 100644
      calendarFooterVisible,
      footerFestivalVisible,
      footerYiJiVisible,
-@@ -130,6 +132,7 @@ export const useCalendarViewModel = (): CalendarViewModel => {
+@@ -130,6 +132,7 @@ export function useCalendarViewModel({
      transparent: effectiveTransparent,
      isDark,
      backgroundOpacity: effectiveBackgroundOpacity,
@@ -202,7 +203,7 @@ index 9a3b84a..37b5477 100644
    });
  
    // 选中哪一天、月历面板显示哪个月（可不同步，例如选其它月中的日期会跳面板）
-@@ -312,6 +315,8 @@ export const useCalendarViewModel = (): CalendarViewModel => {
+@@ -326,6 +329,8 @@ export function useCalendarViewModel({
    const gridProps: CalendarMonthGridProps = {
      styles,
      cellModels,
@@ -212,148 +213,108 @@ index 9a3b84a..37b5477 100644
    };
  
 diff --git a/src/styles/calendarView/gridStyles.ts b/src/styles/calendarView/gridStyles.ts
-index 7cbf5e5..2a2b2b0 100644
+index eee3ec8..d83e0b9 100644
 --- a/src/styles/calendarView/gridStyles.ts
 +++ b/src/styles/calendarView/gridStyles.ts
-@@ -5,11 +5,50 @@ export const createGridStyles = (css: CSSBuilder): CalendarViewStyles['grid'] =>
-   return {
-     calendarGrid: css({
-       display: 'grid',
--      gridTemplateColumns: 'repeat(7, 1fr)',
-+      gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
-       gridTemplateRows: 'auto repeat(6, minmax(var(--calendar-grid-row-min-height), 1fr))',
-       gap: 'var(--calendar-grid-gap)',
-       flex: 1,
-       minHeight: 0,
-     }),
-+    calendarGridWithWeekNumbers: css({
-+      gridTemplateColumns: 'var(--calendar-week-number-column-width) repeat(7, minmax(0, 1fr))',
-+    }),
-+    weekNumberHeader: css({
-+      minWidth: 0,
-+      textAlign: 'center',
-+      color: theme.subText,
-+      fontSize: 'var(--calendar-weekday-font-size)',
-+      lineHeight: 'var(--calendar-weekday-line-height)',
-+      fontWeight: 500,
-+      display: 'flex',
-+      alignItems: 'center',
-+      justifyContent: 'center',
-+      userSelect: 'none',
-+    }),
-+    weekNumberCell: css({
-+      minWidth: 0,
-+      borderRadius: 'var(--calendar-radius)',
-+      display: 'flex',
-+      alignItems: 'center',
-+      justifyContent: 'center',
-+      color: theme.subText,
-+      background: theme.navButtonBackground,
-+      fontSize: 'var(--calendar-week-number-font-size)',
-+      fontWeight: 600,
-+      lineHeight: 1,
-+      fontVariantNumeric: 'tabular-nums',
-+      userSelect: 'none',
-+      whiteSpace: 'nowrap',
-+      '@media (max-width: 520px)': {
-+        fontSize: 'calc(var(--calendar-week-number-font-size) - 1px)',
-+      },
-+    }),
-     weekday: css({
-       minWidth: 0,
-       textAlign: 'center',
+@@ -22,6 +22,30 @@ export function createCalendarGridStyles(ctx: CalendarViewStyleContext) {
+       justify-items: center;
+       align-items: center;
+     `,
++    calendarGridWithWeekNumbers: css`
++      grid-template-columns: 28px repeat(7, 1fr);
++    `,
++    weekNumberHeader: css`
++      width: 28px;
++      height: 24px;
++      padding-bottom: 12px;
++      display: flex;
++      align-items: flex-start;
++      justify-content: center;
++      font-size: 10px;
++      color: var(--text-sec);
++    `,
++    weekNumberCell: css`
++      width: 28px;
++      height: 40px;
++      display: flex;
++      align-items: center;
++      justify-content: center;
++      font-size: 10px;
++      font-variant-numeric: tabular-nums;
++      color: var(--text-sec);
++      opacity: 0.82;
++    `,
+     weekday: css`
+       text-align: center;
+       font-size: 13px;
+diff --git a/src/styles/calendarView/headerStyles.ts b/src/styles/calendarView/headerStyles.ts
+index b59c3ad..b67aa04 100644
+--- a/src/styles/calendarView/headerStyles.ts
++++ b/src/styles/calendarView/headerStyles.ts
+@@ -54,6 +54,11 @@ export function createCalendarHeaderStyles(ctx: CalendarViewStyleContext) {
+       color: var(--text-sec);
+       opacity: 0.9;
+     `,
++    weekNumber: css`
++      color: var(--accent);
++      font-weight: 500;
++      white-space: nowrap;
++    `,
+     festivalList: css`
+       font-size: 13px;
+       color: var(--accent);
 diff --git a/src/styles/calendarView/shellStyles.ts b/src/styles/calendarView/shellStyles.ts
-index 9b2b13b..886f564 100644
+index 3b59930..ebb3b3a 100644
 --- a/src/styles/calendarView/shellStyles.ts
 +++ b/src/styles/calendarView/shellStyles.ts
-@@ -7,6 +7,10 @@ export const createShellStyles = (
-   const { theme, runtime } = input;
-   const { transparent, isDark, backgroundOpacity } = runtime;
-   const panelBackground = theme.panelBackground;
-+  const calendarBaseWidth = runtime.isMobile ? 320 : 400;
-+  const calendarWidth =
-+    calendarBaseWidth + (runtime.weekNumbersVisible ? (runtime.isMobile ? 34 : 42) : 0);
- 
-   return {
-     micaContainer: css({
-@@ -15,7 +19,7 @@ export const createShellStyles = (
-       gap: 'var(--calendar-shell-gap)',
-       padding: 'var(--calendar-shell-padding)',
-       height: runtime.isMobile ? '100%' : 620,
--      width: runtime.isMobile ? '100%' : 400,
-+      width: runtime.isMobile ? '100%' : calendarWidth,
-       maxWidth: '100%',
-       color: theme.text,
-       background: transparent ? 'transparent' : panelBackground,
+@@ -19,7 +19,7 @@ export function createCalendarShellStyles(ctx: CalendarViewStyleContext) {
+       --accent: ${isDark ? '#60cdff' : '#0067c0'};
+       --text-main: ${isDark ? '#ffffff' : '#1c1c1c'};
+       --text-sec: ${isDark ? '#cccccc' : '#5d5d5d'};
+-      width: 320px;
++      width: ${ctx.weekNumbersVisible ? '348px' : '320px'};
+       background: var(--mica-bg);
+       backdrop-filter: ${backdropFilter};
+       -webkit-backdrop-filter: ${backdropFilter};
 diff --git a/src/styles/calendarView/types.ts b/src/styles/calendarView/types.ts
-index 45554d7..fa04b36 100644
+index 7106f57..a27541f 100644
 --- a/src/styles/calendarView/types.ts
 +++ b/src/styles/calendarView/types.ts
-@@ -42,6 +42,9 @@ export interface CalendarStyleRuntime {
-   transparent: boolean;
-   isDark: boolean;
-   backgroundOpacity: number;
-+  /** 月历左侧是否显示周数列；桌面窗口据此适当加宽。 */
-+  weekNumbersVisible: boolean;
+@@ -6,6 +6,8 @@ export interface CalendarViewStyleProps {
+   transparent?: boolean;
+   isDark?: boolean;
+   backgroundOpacity?: number;
++  /** 月历是否显示左侧周数列；显示时窗口略微加宽 */
++  weekNumbersVisible?: boolean;
  }
  
- export interface CalendarHeaderStyleInput {
-@@ -61,10 +64,13 @@ export interface CalendarGridStyleInput {
- export interface CalendarGridStyles {
-   calendarGrid: string;
-+  calendarGridWithWeekNumbers: string;
-   weekday: string;
-+  weekNumberHeader: string;
-+  weekNumberCell: string;
-   cell: string;
-   otherMonth: string;
-   selected: string;
-diff --git a/src/styles/calendarShellVariables.css b/src/styles/calendarShellVariables.css
-index 4b10f62..48c2cf0 100644
---- a/src/styles/calendarShellVariables.css
-+++ b/src/styles/calendarShellVariables.css
-@@ -11,6 +11,8 @@
-   --calendar-grid-row-min-height: 68px;
-   --calendar-weekday-font-size: 14px;
-   --calendar-weekday-line-height: 20px;
-+  --calendar-week-number-column-width: 36px;
-+  --calendar-week-number-font-size: 12px;
-   --calendar-cell-date-font-size: 16px;
-   --calendar-cell-date-line-height: 22px;
-   --calendar-cell-lunar-font-size: 12px;
+ /** 由主题与透明选项推导出的纯值，供各样式块共用 */
+@@ -20,6 +22,8 @@ export interface CalendarThemeTokens {
+ 
+ /** 子模块样式工厂收到的完整上下文 */
+ export interface CalendarViewStyleContext extends CalendarThemeTokens {
++  /** 月历是否显示左侧周数列 */
++  weekNumbersVisible: boolean;
+   css: SerializeCSS;
+   cx: ClassNamesUtil;
+   isDark: boolean;
 diff --git a/src/styles/useCalendarViewStyles.ts b/src/styles/useCalendarViewStyles.ts
-index 6ae3077..22186c0 100644
+index 7a30000..a13db07 100644
 --- a/src/styles/useCalendarViewStyles.ts
 +++ b/src/styles/useCalendarViewStyles.ts
-@@ -13,6 +13,7 @@ export interface UseCalendarViewStylesInput {
-   transparent: boolean;
-   isDark: boolean;
-   backgroundOpacity: number;
-+  weekNumbersVisible: boolean;
- }
- 
- /** CalendarView 主样式 hook：只负责根据主题/运行态组装各 section 样式。 */
-@@ -28,6 +29,7 @@ export const useCalendarViewStyles = createStyles((input: UseCalendarViewStylesIn
-     transparent,
+@@ -21,6 +21,7 @@ export const useCalendarViewStyles = createStyles(({ css, cx }, props: CalendarV
+     css,
+     cx,
      isDark,
-     backgroundOpacity,
-+    weekNumbersVisible,
-   } = input;
- 
-   const theme = computeCalendarTheme(isDark);
-@@ -39,6 +41,7 @@ export const useCalendarViewStyles = createStyles((input: UseCalendarViewStylesIn
-       transparent,
-       isDark,
-       backgroundOpacity,
-+      weekNumbersVisible,
-     },
++    weekNumbersVisible: props.weekNumbersVisible ?? false,
    };
  
+   return {
 diff --git a/src/sync/configStore.ts b/src/sync/configStore.ts
-index 08a082b..0a7aef4 100644
+index 9266f70..62f0e45 100644
 --- a/src/sync/configStore.ts
 +++ b/src/sync/configStore.ts
-@@ -15,6 +15,8 @@ const systemConfigDefaults = {
+@@ -16,6 +16,8 @@ const systemConfigDefaults = {
  } satisfies SystemConfig;
  
  const calendarFooterVisibleDefaults = {
@@ -363,7 +324,7 @@ index 08a082b..0a7aef4 100644
    footerFestivalVisible: true,
    footerYiJiVisible: false,
 diff --git a/src/sync/type/configTypes.ts b/src/sync/type/configTypes.ts
-index 71ad822..90bb11d 100644
+index 1a8d5d5..91a785c 100644
 --- a/src/sync/type/configTypes.ts
 +++ b/src/sync/type/configTypes.ts
 @@ -1,4 +1,5 @@
@@ -372,7 +333,7 @@ index 71ad822..90bb11d 100644
  
  export type MacosVibrancyEffect =
    | 'blur'
-@@ -35,6 +36,10 @@ export interface SystemConfig {
+@@ -42,6 +43,10 @@ export interface SystemConfig {
  }
  
  export interface CalendarFooterVisible {
@@ -385,10 +346,10 @@ index 71ad822..90bb11d 100644
    /** 显示节日信息 */
 diff --git a/src/utils/calendar/calendarWeekNumber.ts b/src/utils/calendar/calendarWeekNumber.ts
 new file mode 100644
-index 0000000..0e04a6d
+index 0000000..cf1501f
 --- /dev/null
 +++ b/src/utils/calendar/calendarWeekNumber.ts
-@@ -0,0 +1,43 @@
+@@ -0,0 +1,41 @@
 +import type { Dayjs } from 'dayjs';
 +
 +/** 年度首周可从 0 或 1 开始编号。 */
@@ -430,3 +391,22 @@ index 0000000..0e04a6d
 +
 +  return firstWeekNumber + weekOffset;
 +}
+diff --git a/src/utils/calendar/setupDayjsCalendar.ts b/src/utils/calendar/setupDayjsCalendar.ts
+index 28efaf5..c95b1c2 100644
+--- a/src/utils/calendar/setupDayjsCalendar.ts
++++ b/src/utils/calendar/setupDayjsCalendar.ts
+@@ -1,5 +1,6 @@
+ import dayjs from 'dayjs';
+ import updateLocale from 'dayjs/plugin/updateLocale';
++import isoWeek from 'dayjs/plugin/isoWeek';
+ import 'dayjs/locale/zh-cn';
+ import 'dayjs/plugin/localeData';
+ 
+@@ -7,6 +8,7 @@ import 'dayjs/plugin/localeData';
+ dayjs.locale('zh-cn');
+ 
+ dayjs.extend(updateLocale);
++dayjs.extend(isoWeek);
+ /** 将周一至周日的展示改为中文全称（与产品表头「一二…日」可并存） */
+ dayjs.updateLocale('zh-cn', {
+   weekdays: ['周日', '周一', '周二', '周三', '周四', '周五', '周六'],
