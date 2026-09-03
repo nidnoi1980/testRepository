@@ -1,0 +1,86 @@
+name: Build liCalendar Week Rows
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'weekrows.patch'
+      - '.github/workflows/build-li-calendar-weekrows.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout build repository
+        uses: actions/checkout@v4
+
+      - name: Get upstream liCalendar v1.0.0 and apply week-number patch
+        shell: pwsh
+        run: |
+          git clone --branch v1.0.0 --depth 1 https://github.com/CrankZ/li-calendar.git app
+          Copy-Item "$env:GITHUB_WORKSPACE\weekrows.patch" "$env:GITHUB_WORKSPACE\app\weekrows.patch"
+          Set-Location "$env:GITHUB_WORKSPACE\app"
+          git apply --check weekrows.patch
+          git apply weekrows.patch
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.9.2
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+          cache-dependency-path: app/pnpm-lock.yaml
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install frontend dependencies
+        shell: pwsh
+        working-directory: app
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check
+        shell: pwsh
+        working-directory: app
+        run: pnpm typecheck
+
+      - name: Build Windows installer
+        shell: pwsh
+        working-directory: app
+        run: pnpm tauri build
+
+      - name: Collect installer
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "$env:GITHUB_WORKSPACE\release" | Out-Null
+          $installer = Get-ChildItem "$env:GITHUB_WORKSPACE\app\src-tauri\target\release\bundle\nsis\*.exe" | Select-Object -First 1
+          if (-not $installer) { throw 'NSIS installer was not generated.' }
+          Copy-Item $installer.FullName "$env:GITHUB_WORKSPACE\release\liCalendar_1.0.0_weekrows_x64-setup.exe"
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: liCalendar-weekrows-windows
+          path: release/liCalendar_1.0.0_weekrows_x64-setup.exe
+          if-no-files-found: error
+
+      - name: Publish build release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: li-calendar-weekrows-v1.0.0
+          name: liCalendar 1.0.0 - Week Rows
+          prerelease: true
+          body: |
+            Custom build based on CrankZ/li-calendar v1.0.0.
+            Adds a week-number column on the left of each calendar row and a setting to start the Jan 1 week at W0 or W1.
+          files: release/liCalendar_1.0.0_weekrows_x64-setup.exe
