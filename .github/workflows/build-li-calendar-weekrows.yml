@@ -1,5 +1,6 @@
 name: Build liCalendar Week Rows
 
+# Build trigger for custom Windows installer
 on:
   push:
     branches: [master]
