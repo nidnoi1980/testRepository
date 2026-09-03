@@ -1,14 +1,15 @@
 diff --git a/README.md b/README.md
-index 2a6aad3..5d4254d 100644
+index 2a6aad3..35d5579 100644
 --- a/README.md
 +++ b/README.md
-@@ -25,3 +25,6 @@ pnpm install
+@@ -25,3 +25,7 @@ pnpm install
  pnpm tauri dev
  ```
  
 +## 本修改版新增
 +
-+- 月历左侧可显示每一行的周数，并可在「设置 → 日历内容」中选择包含 1 月 1 日的首周从 W0 或 W1 开始编号。
++- 月历左侧逐行显示周数（可关闭）。
++- 可设置包含 1 月 1 日的第一周从 W0 或 W1 开始编号。
 diff --git a/WEEK_NUMBER_MODIFICATION.md b/WEEK_NUMBER_MODIFICATION.md
 new file mode 100644
 index 0000000..b64ffae
@@ -30,11 +31,36 @@ index 0000000..b64ffae
 +- 跨年行如果包含下一年的 1 月 1 日，会直接按新年度重新编号。
 +
 +例如，若选择“第1周”，则包含 1 月 1 日的那一行显示 `W1`；下一行显示 `W2`。若选择“第0周”，则分别显示 `W0`、`W1`。
+diff --git a/src-tauri/src/window_manager/windows/taskbar_popup.rs b/src-tauri/src/window_manager/windows/taskbar_popup.rs
+index bb0f4dd..34aaa66 100644
+--- a/src-tauri/src/window_manager/windows/taskbar_popup.rs
++++ b/src-tauri/src/window_manager/windows/taskbar_popup.rs
+@@ -189,7 +189,7 @@ impl CalendarWindowManager {
+             tauri::WebviewUrl::App("index.html?window=popup".into()),
+         )
+         .title("松鼠日历")
+-        .inner_size(360.0, 520.0)
++        .inner_size(380.0, 520.0)
+         .resizable(false)
+         .decorations(false)
+         .transparent(true)
+@@ -314,9 +314,9 @@ impl CalendarWindowManager {
+             }
+             // 获取不到则使用逻辑尺寸和缩放因子计算
+             let scale = popup_window.scale_factor().unwrap_or(1.0);
+-            ((360.0 * scale) as i32, (520.0 * scale) as i32)
++            ((380.0 * scale) as i32, (520.0 * scale) as i32)
+         } else {
+-            (360, 520)
++            (380, 520)
+         }
+     }
+ 
 diff --git a/src/components/calendar/subs/CalendarMonthGrid.tsx b/src/components/calendar/subs/CalendarMonthGrid.tsx
-index 4835070..619a3da 100644
+index 4835070..a8a9c7e 100644
 --- a/src/components/calendar/subs/CalendarMonthGrid.tsx
 +++ b/src/components/calendar/subs/CalendarMonthGrid.tsx
-@@ -1,36 +1,56 @@
+@@ -1,36 +1,52 @@
  import { Tooltip } from 'antd';
  import classNames from 'classnames';
  import type { Dayjs } from 'dayjs';
@@ -78,12 +104,7 @@ index 4835070..619a3da 100644
 +  });
  
    return (
--    <div className={styles.calendarGrid}>
-+    <div
-+      className={classNames(styles.calendarGrid, {
-+        [styles.calendarGridWithWeekNumbers]: showWeekNumbers,
-+      })}
-+    >
+     <div className={styles.calendarGrid}>
 +      {showWeekNumbers && <div className={styles.weekNumberHeader}>周</div>}
        {weekdays.map((day) => (
          <div className={styles.weekday} key={day}>
@@ -96,7 +117,7 @@ index 4835070..619a3da 100644
          /** 「休」「班」角标对应不同背景色 class */
          const badgeClass =
            cell.badgeVariant === 'rest'
-@@ -38,27 +58,36 @@ function CalendarMonthGrid(): ReactElement {
+@@ -38,27 +54,36 @@ function CalendarMonthGrid(): ReactElement {
              : cell.badgeVariant === 'work'
                ? styles.tagWork
                : '';
@@ -213,16 +234,21 @@ index 53dd7e8..ea20567 100644
    };
  
 diff --git a/src/styles/calendarView/gridStyles.ts b/src/styles/calendarView/gridStyles.ts
-index eee3ec8..d83e0b9 100644
+index eee3ec8..03d3e2f 100644
 --- a/src/styles/calendarView/gridStyles.ts
 +++ b/src/styles/calendarView/gridStyles.ts
-@@ -22,6 +22,30 @@ export function createCalendarGridStyles(ctx: CalendarViewStyleContext) {
+@@ -17,11 +17,34 @@ export function createCalendarGridStyles(ctx: CalendarViewStyleContext) {
+   return {
+     calendarGrid: css`
+       display: grid;
+-      grid-template-columns: repeat(7, 1fr);
++      grid-template-columns: ${ctx.weekNumbersVisible
++        ? '28px repeat(7, minmax(0, 1fr))'
++        : 'repeat(7, minmax(0, 1fr))'};
+       gap: 1px;
        justify-items: center;
        align-items: center;
      `,
-+    calendarGridWithWeekNumbers: css`
-+      grid-template-columns: 28px repeat(7, 1fr);
-+    `,
 +    weekNumberHeader: css`
 +      width: 28px;
 +      height: 24px;
@@ -247,22 +273,6 @@ index eee3ec8..d83e0b9 100644
      weekday: css`
        text-align: center;
        font-size: 13px;
-diff --git a/src/styles/calendarView/headerStyles.ts b/src/styles/calendarView/headerStyles.ts
-index b59c3ad..b67aa04 100644
---- a/src/styles/calendarView/headerStyles.ts
-+++ b/src/styles/calendarView/headerStyles.ts
-@@ -54,6 +54,11 @@ export function createCalendarHeaderStyles(ctx: CalendarViewStyleContext) {
-       color: var(--text-sec);
-       opacity: 0.9;
-     `,
-+    weekNumber: css`
-+      color: var(--accent);
-+      font-weight: 500;
-+      white-space: nowrap;
-+    `,
-     festivalList: css`
-       font-size: 13px;
-       color: var(--accent);
 diff --git a/src/styles/calendarView/shellStyles.ts b/src/styles/calendarView/shellStyles.ts
 index 3b59930..ebb3b3a 100644
 --- a/src/styles/calendarView/shellStyles.ts
@@ -346,10 +356,10 @@ index 1a8d5d5..91a785c 100644
    /** 显示节日信息 */
 diff --git a/src/utils/calendar/calendarWeekNumber.ts b/src/utils/calendar/calendarWeekNumber.ts
 new file mode 100644
-index 0000000..cf1501f
+index 0000000..552b267
 --- /dev/null
 +++ b/src/utils/calendar/calendarWeekNumber.ts
-@@ -0,0 +1,41 @@
+@@ -0,0 +1,40 @@
 +import type { Dayjs } from 'dayjs';
 +
 +/** 年度首周可从 0 或 1 开始编号。 */
@@ -382,7 +392,6 @@ index 0000000..cf1501f
 +  const rowEnd = rowStart.add(6, 'day');
 +  // 只有跨年周才会出现 rowStart.year() !== rowEnd.year()；该周包含新年的 1 月 1 日，
 +  // 因而应按新年度编号。
-+  const weekYear = rowEnd.year();
 +  const jan1 = rowEnd.startOf('year');
 +  const firstRowStart = getMondayOfWeek(jan1);
 +  const civilDayNumber = (date: Dayjs): number =>
@@ -391,22 +400,3 @@ index 0000000..cf1501f
 +
 +  return firstWeekNumber + weekOffset;
 +}
-diff --git a/src/utils/calendar/setupDayjsCalendar.ts b/src/utils/calendar/setupDayjsCalendar.ts
-index 28efaf5..c95b1c2 100644
---- a/src/utils/calendar/setupDayjsCalendar.ts
-+++ b/src/utils/calendar/setupDayjsCalendar.ts
-@@ -1,5 +1,6 @@
- import dayjs from 'dayjs';
- import updateLocale from 'dayjs/plugin/updateLocale';
-+import isoWeek from 'dayjs/plugin/isoWeek';
- import 'dayjs/locale/zh-cn';
- import 'dayjs/plugin/localeData';
- 
-@@ -7,6 +8,7 @@ import 'dayjs/plugin/localeData';
- dayjs.locale('zh-cn');
- 
- dayjs.extend(updateLocale);
-+dayjs.extend(isoWeek);
- /** 将周一至周日的展示改为中文全称（与产品表头「一二…日」可并存） */
- dayjs.updateLocale('zh-cn', {
-   weekdays: ['周日', '周一', '周二', '周三', '周四', '周五', '周六'],
