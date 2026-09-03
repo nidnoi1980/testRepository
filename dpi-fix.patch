@@ -1,0 +1,41 @@
+diff --git a/src/hooks/calender/useTauriCalendarResize.ts b/src/hooks/calender/useTauriCalendarResize.ts
+index 54a48fa..6e5d4f1 100644
+--- a/src/hooks/calender/useTauriCalendarResize.ts
++++ b/src/hooks/calender/useTauriCalendarResize.ts
+@@ -1,5 +1,5 @@
+ import { invoke } from '@tauri-apps/api/core';
+-import { PhysicalSize } from '@tauri-apps/api/dpi';
++import { LogicalSize } from '@tauri-apps/api/dpi';
+ import { getCurrentWindow } from '@tauri-apps/api/window';
+ import { type RefObject, useLayoutEffect, useRef } from 'react';
+ 
+@@ -7,7 +7,8 @@ import { type RefObject, useLayoutEffect, useRef } from 'react';
+ const REPOSITION_NEAR_TASKBAR_MS = 150;
+ 
+ /**
+- * 将日历根节点内容尺寸同步为当前 Tauri 窗口物理像素大小（含缩放因子）。
++ * 将日历根节点内容尺寸同步为当前 Tauri 窗口逻辑尺寸。
++ * 让 Tauri 自己处理 Windows DPI/缩放换算，并使用 scrollWidth/scrollHeight 避免内容溢出被裁剪。
+  */
+ export function useTauriCalendarResize(
+   autoResizeWindow: boolean,
+@@ -46,15 +47,13 @@ export function useTauriCalendarResize(
+ 
+     const resizeWindow = async (): Promise<void> => {
+       const window = getCurrentWindow();
+-      const factor = await window.scaleFactor();
+-      const width = el.offsetWidth;
+-      const height = el.offsetHeight;
+-
+-      const physicalWidth = Math.ceil(width * factor);
+-      const physicalHeight = Math.ceil(height * factor);
++      const rect = el.getBoundingClientRect();
++      const width = Math.ceil(Math.max(rect.width, el.offsetWidth, el.scrollWidth)) + 2;
++      const height = Math.ceil(Math.max(rect.height, el.offsetHeight, el.scrollHeight)) + 2;
+ 
+-      await window.setSize(new PhysicalSize(physicalWidth, physicalHeight));
++      // 这里直接传逻辑尺寸，避免手工乘 scaleFactor 在高 DPI / 多显示器场景下出现尺寸不一致。
++      await window.setSize(new LogicalSize(width, height));
+       scheduleRepositionTaskbarPopup();
+     };
+ 
