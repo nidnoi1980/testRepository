@@ -6,7 +6,6 @@ on:
     branches: [master]
     paths:
       - 'weekrows.patch'
-      - 'dpi-fix.patch'
       - '.github/workflows/build-li-calendar-weekrows.yml'
   workflow_dispatch:
 
@@ -21,19 +20,42 @@ jobs:
       - name: Checkout build repository
         uses: actions/checkout@v4
 
-      - name: Get upstream liCalendar v1.0.0 and apply custom patches
+      - name: Get upstream liCalendar v1.0.0 and apply custom changes
         shell: pwsh
         run: |
           git clone --branch v1.0.0 --depth 1 https://github.com/CrankZ/li-calendar.git app
           Copy-Item "$env:GITHUB_WORKSPACE\weekrows.patch" "$env:GITHUB_WORKSPACE\app\weekrows.patch"
-          Copy-Item "$env:GITHUB_WORKSPACE\dpi-fix.patch" "$env:GITHUB_WORKSPACE\app\dpi-fix.patch"
           Set-Location "$env:GITHUB_WORKSPACE\app"
           git apply --check weekrows.patch
           git apply weekrows.patch
-          git apply --check dpi-fix.patch
-          git apply dpi-fix.patch
+
           $weekFile = "src/utils/calendar/calendarWeekNumber.ts"
           (Get-Content $weekFile) | Where-Object { $_ -notmatch 'const weekYear = rowEnd\.year\(\);' } | Set-Content -Encoding utf8 $weekFile
+
+          # Fix the original popup auto-resize logic for high-DPI Windows displays.
+          # Use Tauri LogicalSize instead of manually multiplying by scaleFactor,
+          # and size from the larger of the element box and its scroll extent.
+          $resizeFile = "src/hooks/calender/useTauriCalendarResize.ts"
+          $lines = [System.Collections.Generic.List[string]](Get-Content $resizeFile)
+          for ($i = 0; $i -lt $lines.Count; $i++) {
+            if ($lines[$i] -eq "import { PhysicalSize } from '@tauri-apps/api/dpi';") {
+              $lines[$i] = "import { LogicalSize } from '@tauri-apps/api/dpi';"
+              break
+            }
+          }
+          $start = $lines.IndexOf('      const factor = await window.scaleFactor();')
+          $end = $lines.IndexOf('      await window.setSize(new PhysicalSize(physicalWidth, physicalHeight));')
+          if ($start -lt 0 -or $end -lt $start) { throw 'Could not locate original resize block.' }
+          for ($i = $end; $i -ge $start; $i--) { $lines.RemoveAt($i) }
+          $replacement = [string[]]@(
+            '      const rect = el.getBoundingClientRect();',
+            '      const width = Math.ceil(Math.max(rect.width, el.offsetWidth, el.scrollWidth)) + 2;',
+            '      const height = Math.ceil(Math.max(rect.height, el.offsetHeight, el.scrollHeight)) + 2;',
+            '',
+            '      await window.setSize(new LogicalSize(width, height));'
+          )
+          $lines.InsertRange($start, $replacement)
+          Set-Content -Encoding utf8 $resizeFile $lines
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
