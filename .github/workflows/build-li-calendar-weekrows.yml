@@ -6,6 +6,7 @@ on:
     branches: [master]
     paths:
       - 'weekrows.patch'
+      - 'dpi-fix.patch'
       - '.github/workflows/build-li-calendar-weekrows.yml'
   workflow_dispatch:
 
@@ -20,14 +21,17 @@ jobs:
       - name: Checkout build repository
         uses: actions/checkout@v4
 
-      - name: Get upstream liCalendar v1.0.0 and apply week-number patch
+      - name: Get upstream liCalendar v1.0.0 and apply custom patches
         shell: pwsh
         run: |
           git clone --branch v1.0.0 --depth 1 https://github.com/CrankZ/li-calendar.git app
           Copy-Item "$env:GITHUB_WORKSPACE\weekrows.patch" "$env:GITHUB_WORKSPACE\app\weekrows.patch"
+          Copy-Item "$env:GITHUB_WORKSPACE\dpi-fix.patch" "$env:GITHUB_WORKSPACE\app\dpi-fix.patch"
           Set-Location "$env:GITHUB_WORKSPACE\app"
           git apply --check weekrows.patch
           git apply weekrows.patch
+          git apply --check dpi-fix.patch
+          git apply dpi-fix.patch
           $weekFile = "src/utils/calendar/calendarWeekNumber.ts"
           (Get-Content $weekFile) | Where-Object { $_ -notmatch 'const weekYear = rowEnd\.year\(\);' } | Set-Content -Encoding utf8 $weekFile
 
@@ -68,13 +72,13 @@ jobs:
           New-Item -ItemType Directory -Force -Path "$env:GITHUB_WORKSPACE\release" | Out-Null
           $installer = Get-ChildItem "$env:GITHUB_WORKSPACE\app\src-tauri\target\release\bundle\nsis\*.exe" | Select-Object -First 1
           if (-not $installer) { throw 'NSIS installer was not generated.' }
-          Copy-Item $installer.FullName "$env:GITHUB_WORKSPACE\release\liCalendar_1.0.0_weekrows_x64-setup.exe"
+          Copy-Item $installer.FullName "$env:GITHUB_WORKSPACE\release\liCalendar_1.0.0_weekrows_dpi_x64-setup.exe"
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: liCalendar-weekrows-windows
-          path: release/liCalendar_1.0.0_weekrows_x64-setup.exe
+          name: liCalendar-weekrows-dpi-windows
+          path: release/liCalendar_1.0.0_weekrows_dpi_x64-setup.exe
           if-no-files-found: error
 
       - name: Publish build release
@@ -85,5 +89,5 @@ jobs:
           prerelease: true
           body: |
             Custom build based on CrankZ/li-calendar v1.0.0.
-            Adds a week-number column on the left of each calendar row and a setting to start the Jan 1 week at W0 or W1.
-          files: release/liCalendar_1.0.0_weekrows_x64-setup.exe
+            Adds a week-number column on the left of each calendar row, W0/W1 configuration, and DPI-safe popup auto sizing for Windows.
+          files: release/liCalendar_1.0.0_weekrows_dpi_x64-setup.exe
