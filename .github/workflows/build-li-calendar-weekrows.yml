@@ -28,6 +28,8 @@ jobs:
           Set-Location "$env:GITHUB_WORKSPACE\app"
           git apply --check weekrows.patch
           git apply weekrows.patch
+          $weekFile = "src/utils/calendar/calendarWeekNumber.ts"
+          (Get-Content $weekFile) | Where-Object { $_ -notmatch 'const weekYear = rowEnd\.year\(\);' } | Set-Content -Encoding utf8 $weekFile
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
